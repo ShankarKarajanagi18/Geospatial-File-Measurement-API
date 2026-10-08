@@ -1,0 +1,31 @@
+[project]
+name = "geo-measure-api"
+version = "1.0.0"
+description = "FastAPI service that ingests Shapefile (.zip) / KML files and returns CRS-aware area and length measurements."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
+filterwarnings = [
+    "ignore::DeprecationWarning:starlette.*",
+    "ignore:Declared file size in .shp header",
+    "ignore:You will likely lose important projection information.*:UserWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["UP042"]  # (str, Enum) is kept on purpose
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.File"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]

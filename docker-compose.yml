@@ -1,0 +1,11 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - geo-data:/srv/data
+    environment:
+      MAX_UPLOAD_BYTES: "52428800"
+volumes:
+  geo-data:

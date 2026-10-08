@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoMeasure Studio — Geospatial Measurement & Feature Engine</title>
+  <meta name="description" content="High-precision geospatial measurement API & visualizer. Upload Shapefiles and KML to compute CRS-aware area, perimeter, and length with geodesic verification.">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark-theme">
+  <!-- Top Navigation Bar -->
+  <header class="app-header" id="app-header">
+    <div class="header-brand">
+      <div class="brand-icon">
+        <i class="fa-solid fa-draw-polygon"></i>
+      </div>
+      <div class="brand-titles">
+        <span class="brand-name">GeoMeasure Studio</span>
+        <span class="brand-divider">/</span>
+        <span class="brand-tagline">Geospatial Measurement Engine</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Live API Status -->
+      <div class="api-status-pill" id="api-status-pill" title="API status">
+        <span class="status-dot"></span>
+        <span class="status-label" id="api-status-text">Connecting...</span>
+      </div>
+
+      <div class="header-divider"></div>
+
+      <div class="header-links">
+        <a href="/docs" target="_blank" rel="noopener" class="header-link-btn" id="docs-btn" title="Open Swagger UI API Documentation">
+          <i class="fa-solid fa-file-code"></i>
+          <span>Swagger Docs</span>
+        </a>
+        <a href="/redoc" target="_blank" rel="noopener" class="header-link-btn" id="redoc-btn" title="Open ReDoc Specification">
+          <i class="fa-solid fa-book"></i>
+          <span>ReDoc</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Studio Workspace -->
+  <main class="studio-container" id="studio-main">
+    
+    <!-- Left Sidebar: Controls, Upload, Metrics & Features -->
+    <aside class="studio-sidebar" id="studio-sidebar">
+      
+      <!-- Upload Card -->
+      <section class="panel-card upload-section" id="upload-panel">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <i class="fa-solid fa-layer-group panel-icon"></i>
+            <h2>Geospatial Upload</h2>
+          </div>
+          <span class="format-hint">.ZIP • .KML • .KMZ</span>
+        </div>
+
+        <!-- Drag & Drop Dropzone -->
+        <div class="dropzone" id="file-dropzone">
+          <input type="file" id="file-input" accept=".zip,.kml,.kmz" class="file-input-hidden">
+          <div class="dropzone-content">
+            <i class="fa-solid fa-arrow-up-from-bracket dropzone-icon"></i>
+            <p class="dropzone-title"><strong>Drop Shapefile (.zip) or KML</strong> or <button type="button" class="link-btn" id="browse-btn">browse files</button></p>
+            <p class="dropzone-subtitle">Accepts Shapefile archives (.shp, .dbf, .prj) and KML/KMZ documents</p>
+          </div>
+        </div>
+
+        <!-- Progress / Spinner Overlay -->
+        <div class="upload-progress-container" id="upload-progress" style="display: none;">
+          <div class="spinner"></div>
+          <p class="progress-text" id="progress-text">Processing features & calculating measurements...</p>
+        </div>
+
+        <!-- Sample Datasets Quick-Load -->
+        <div class="samples-container" id="samples-container">
+          <div class="samples-header">
+            <span>SAMPLE DATASETS</span>
+          </div>
+          <div class="sample-pills-grid" id="sample-pills">
+            <button type="button" class="sample-btn" data-sample="bengaluru_survey.kml" id="sample-bengaluru" title="KML survey containing parcels, road and landmarks">
+              <i class="fa-solid fa-file-lines"></i>
+              <span class="sample-btn-text">Bengaluru Survey (KML)</span>
+            </button>
+            <button type="button" class="sample-btn" data-sample="parcels_utm43.zip" id="sample-parcels" title="Shapefile in projected UTM Zone 43N">
+              <i class="fa-solid fa-file-zipper"></i>
+              <span class="sample-btn-text">Parcels UTM 43 (.zip)</span>
+            </button>
+            <button type="button" class="sample-btn" data-sample="districts_wgs84.zip" id="sample-districts" title="Shapefile in geographic WGS84">
+              <i class="fa-solid fa-file-zipper"></i>
+              <span class="sample-btn-text">Districts WGS84 (.zip)</span>
+            </button>
+            <button type="button" class="sample-btn" data-sample="edge_cases.kml" id="sample-edgecases" title="KML testing self-intersections and multi-geometry types">
+              <i class="fa-solid fa-file-lines"></i>
+              <span class="sample-btn-text">Edge Cases (KML)</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Active File Overview Card -->
+      <section class="panel-card active-file-section" id="active-file-panel" style="display: none;">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <i class="fa-solid fa-file-lines panel-icon"></i>
+            <h2>Active Dataset</h2>
+          </div>
+          <div class="file-action-buttons">
+            <button type="button" class="btn-icon" id="export-json-btn" title="Export Measurements (JSON)">
+              <i class="fa-solid fa-code"></i>
+            </button>
+            <button type="button" class="btn-icon" id="export-csv-btn" title="Export Measurements (CSV)">
+              <i class="fa-solid fa-file-csv"></i>
+            </button>
+            <button type="button" class="btn-icon btn-danger-ghost" id="delete-file-btn" title="Delete Dataset">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="file-meta-row">
+          <div class="file-meta-item file-name-col">
+            <span class="meta-label">FILE</span>
+            <span class="meta-value file-name-value" id="file-name" title="">-</span>
+          </div>
+          <div class="file-meta-item">
+            <span class="meta-label">CRS</span>
+            <span class="meta-value meta-tag crs-tag" id="file-crs">-</span>
+          </div>
+          <div class="file-meta-item">
+            <span class="meta-label">STATUS</span>
+            <span class="meta-value meta-tag status-tag" id="file-status">COMPLETED</span>
+          </div>
+        </div>
+
+        <!-- Metrics Overview Grid -->
+        <div class="metrics-grid">
+          <div class="metric-card" id="metric-area">
+            <div class="metric-header-row">
+              <span class="metric-label">TOTAL AREA</span>
+              <i class="fa-solid fa-vector-square metric-header-icon"></i>
+            </div>
+            <div class="metric-value-row">
+              <span class="metric-main-value" id="val-total-area">0</span>
+              <span class="metric-unit">m²</span>
+            </div>
+            <span class="metric-sub-value" id="val-area-alt">0.00 ha</span>
+          </div>
+
+          <div class="metric-card" id="metric-length">
+            <div class="metric-header-row">
+              <span class="metric-label">TOTAL LENGTH</span>
+              <i class="fa-solid fa-route metric-header-icon"></i>
+            </div>
+            <div class="metric-value-row">
+              <span class="metric-main-value" id="val-total-length">0</span>
+              <span class="metric-unit">m</span>
+            </div>
+            <span class="metric-sub-value" id="val-length-alt">0.00 km</span>
+          </div>
+        </div>
+
+        <!-- Geometry Breakdown Bar -->
+        <div class="breakdown-wrap">
+          <div class="breakdown-header">
+            <span>GEOMETRY DISTRIBUTION</span>
+            <span id="features-total-count" class="breakdown-count">0 Features</span>
+          </div>
+          <div class="breakdown-pills" id="breakdown-pills">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Feature Explorer & Filter List -->
+      <section class="panel-card features-explorer-section" id="features-panel" style="display: none;">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <i class="fa-solid fa-table-list panel-icon"></i>
+            <h2>Feature Inspector</h2>
+          </div>
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="feature-search-input" placeholder="Filter features...">
+          </div>
+        </div>
+
+        <!-- Geometry Filter Tabs -->
+        <div class="filter-tabs" id="geometry-filter-tabs">
+          <button type="button" class="filter-tab active" data-filter="ALL" id="tab-filter-all">
+            All <span class="tab-count" id="count-all">0</span>
+          </button>
+          <button type="button" class="filter-tab" data-filter="Polygon" id="tab-filter-polygons">
+            Polygons <span class="tab-count" id="count-polygons">0</span>
+          </button>
+          <button type="button" class="filter-tab" data-filter="LineString" id="tab-filter-lines">
+            Lines <span class="tab-count" id="count-lines">0</span>
+          </button>
+          <button type="button" class="filter-tab" data-filter="Point" id="tab-filter-points">
+            Points <span class="tab-count" id="count-points">0</span>
+          </button>
+        </div>
+
+        <!-- Scrollable Feature List -->
+        <div class="features-list-scroll" id="features-list">
+          <!-- Dynamic Feature Cards -->
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- Right Panel: Interactive Geospatial Canvas & Inspector -->
+    <section class="studio-viewport" id="studio-viewport">
+      
+      <!-- Top Floating Map Toolbar -->
+      <div class="map-floating-bar" id="map-toolbar">
+        <div class="toolbar-left">
+          <button type="button" class="map-tool-btn" id="btn-fit-bounds" title="Fit All Features In View">
+            <i class="fa-solid fa-compress"></i> <span>Fit View</span>
+          </button>
+          <div class="basemap-selector-wrap">
+            <button type="button" class="map-tool-btn" id="btn-basemap-toggle" title="Switch Basemap Style">
+              <i class="fa-solid fa-layer-group"></i> <span id="current-basemap-label">Esri Dark Canvas</span>
+            </button>
+            <div class="basemap-dropdown" id="basemap-dropdown" style="display: none;">
+              <button type="button" class="basemap-option active" data-basemap="dark">
+                <i class="fa-solid fa-moon"></i> Esri Dark Canvas
+              </button>
+              <button type="button" class="basemap-option" data-basemap="osm">
+                <i class="fa-solid fa-globe"></i> OpenStreetMap
+              </button>
+              <button type="button" class="basemap-option" data-basemap="satellite">
+                <i class="fa-solid fa-satellite"></i> ESRI World Imagery
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar-right">
+          <!-- Coordinates & Zoom Display -->
+          <div class="coord-display" id="coord-display">
+            <span id="mouse-coords">Lat: --.----, Lon: --.----</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leaflet Map Container -->
+      <div id="map" class="map-canvas"></div>
+
+      <!-- Map Legend -->
+      <div class="map-legend" id="map-legend">
+        <div class="legend-title">Measurement Legend</div>
+        <div class="legend-row">
+          <span class="legend-symbol symbol-polygon"></span>
+          <span class="legend-text">Polygon (Area & Perimeter)</span>
+        </div>
+        <div class="legend-row">
+          <span class="legend-symbol symbol-line"></span>
+          <span class="legend-text">LineString (Length)</span>
+        </div>
+        <div class="legend-row">
+          <span class="legend-symbol symbol-point"></span>
+          <span class="legend-text">Point (Position Only)</span>
+        </div>
+      </div>
+
+      <!-- Feature Detail Inspection Drawer (Floating overlay) -->
+      <aside class="feature-detail-drawer" id="feature-detail-drawer" style="display: none;">
+        <div class="drawer-header">
+          <div class="drawer-title-wrap">
+            <span class="drawer-geom-icon" id="detail-geom-icon"><i class="fa-solid fa-draw-polygon"></i></span>
+            <div>
+              <h3 class="drawer-title" id="detail-title">Feature Inspection</h3>
+              <p class="drawer-subtitle" id="detail-subtitle">Feature #0</p>
+            </div>
+          </div>
+          <button type="button" class="drawer-close-btn" id="detail-close-btn" title="Close Drawer">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="drawer-content">
+          <!-- Status Banner -->
+          <div class="detail-status-banner" id="detail-status-banner">
+            <span class="badge" id="detail-status-badge">MEASURED</span>
+            <span class="detail-layer-text" id="detail-layer-text">Layer: default</span>
+          </div>
+
+          <!-- Measurement Values Card -->
+          <div class="detail-block">
+            <div class="block-title">Measurements</div>
+            <div class="detail-measure-grid" id="detail-measure-grid">
+              <!-- Dynamically populated with Area, Perimeter, Length -->
+            </div>
+          </div>
+
+          <!-- CRS & Projection Strategy Card -->
+          <div class="detail-block">
+            <div class="block-title">CRS & Projection Methodology</div>
+            <div class="crs-method-card" id="detail-crs-method">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Geodesic Cross-Check Card -->
+          <div class="detail-block" id="detail-geodesic-block">
+            <div class="block-title">Ellipsoidal Geodesic Verification</div>
+            <div class="geodesic-verification-card" id="detail-geodesic-card">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Properties / Attributes Key-Value Table -->
+          <div class="detail-block" id="detail-properties-block">
+            <div class="block-title">Attributes & Properties</div>
+            <div class="properties-table-wrap" id="detail-properties-wrap">
+              <table class="properties-table" id="detail-properties-table">
+                <thead>
+                  <tr>
+                    <th>Key</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody id="detail-properties-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </aside>
+
+    </section>
+
+  </main>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Studio App JS -->
+  <script src="/static/app.js"></script>
+</body>
+</html>
